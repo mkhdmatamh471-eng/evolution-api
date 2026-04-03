@@ -1,47 +1,50 @@
 # --- المرحلة الأولى: البناء (Builder) ---
 FROM node:24-alpine AS builder
 
+# تثبيت الأدوات الأساسية للبناء
 RUN apk update && \
     apk add --no-cache git ffmpeg wget curl bash openssl dos2unix
 
 WORKDIR /evolution
 
+# 1. نسخ ملفات الاعتمادات أولاً (للاستفادة من الكاش)
 COPY ./package*.json ./
 COPY ./tsconfig.json ./
 COPY ./tsup.config.ts ./
-
 RUN npm ci --silent
 
-# نسخ الملفات الضرورية (تأكد من وجود start.py في مجلد المشروع)
+# 2. نسخ الملفات المصدرية وملفات Prisma (ترتيب حاسم)
+COPY ./prisma ./prisma
 COPY ./src ./src
 COPY ./public ./public
-COPY ./prisma ./prisma
 COPY ./manager ./manager
-COPY ./start.py ./start.py 
-COPY ./.env.example ./.env
-COPY ./runWithProvider.js ./
 COPY ./Docker ./Docker
+COPY ./start.py ./start.py
+COPY ./runWithProvider.js ./
+COPY ./.env.example ./.env
 
-# توليد عميل بريزما (Prisma Client) - خطوة أساسية للبناء
+# 3. توليد عميل بريزما (Prisma Client)
 RUN npx prisma generate
 
+# 4. تنظيف سكربتات الدوكر وبناء المشروع
 RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
 RUN ./Docker/scripts/generate_database.sh
 RUN npm run build
 
-# --- المرحلة الثانية: التشغيل (Final) ---
+# --- المرحلة الثانية: التشغيل النهائي (Final) ---
 FROM node:24-alpine AS final
 
-# إضافة بايثون لتشغيل سيرفرك الخاص
+# إضافة بايثون لتشغيل سيرفرك
 RUN apk update && \
     apk add --no-cache tzdata ffmpeg bash openssl python3
 
 ENV TZ=America/Sao_Paulo
 ENV DOCKER_ENV=true
+ENV NODE_ENV=production
 
 WORKDIR /evolution
 
-# نسخ الملفات من مرحلة builder
+# نسخ المخرجات من مرحلة البناء فقط
 COPY --from=builder /evolution/package.json ./package.json
 COPY --from=builder /evolution/node_modules ./node_modules
 COPY --from=builder /evolution/dist ./dist
@@ -53,6 +56,6 @@ COPY --from=builder /evolution/start.py ./start.py
 
 EXPOSE 8080
 
-# التعديل الجذري: تنفيذ الهجرة (إنشاء الجداول) ثم تشغيل السيرفر
-# هذا يضمن أن جدول Instance سيكون موجوداً قبل طلب الباركود
+# الحل الجذري: تنفيذ الهجرة لإنشاء الجداول ثم تشغيل بايثون
+# هذا يمنع خطأ الـ 500 و "Table public.Instance not found"
 ENTRYPOINT ["sh", "-c", "npx prisma migrate deploy && python3 start.py"]
