@@ -1,61 +1,65 @@
-# --- المرحلة الأولى: البناء (Builder) ---
 FROM node:24-alpine AS builder
 
-# تثبيت الأدوات الأساسية للبناء
 RUN apk update && \
-    apk add --no-cache git ffmpeg wget curl bash openssl dos2unix
+    apk add --no-cache git ffmpeg wget curl bash openssl
+
+LABEL version="2.3.1" description="Api to control whatsapp features through http requests." 
+LABEL maintainer="Davidson Gomes" git="https://github.com/DavidsonGomes"
+LABEL contact="contato@evolution-api.com"
 
 WORKDIR /evolution
 
-# 1. نسخ ملفات الاعتمادات أولاً (للاستفادة من الكاش)
 COPY ./package*.json ./
 COPY ./tsconfig.json ./
 COPY ./tsup.config.ts ./
+
 RUN npm ci --silent
 
-# 2. نسخ الملفات المصدرية وملفات Prisma (ترتيب حاسم)
-COPY ./prisma ./prisma
 COPY ./src ./src
 COPY ./public ./public
+COPY ./prisma ./prisma
 COPY ./manager ./manager
-COPY ./Docker ./Docker
-COPY ./start.py ./start.py
-COPY ./runWithProvider.js ./
 COPY ./.env.example ./.env
+COPY ./runWithProvider.js ./
 
-# 3. توليد عميل بريزما (Prisma Client)
-RUN npx prisma generate
+COPY ./Docker ./Docker
 
-# 4. تنظيف سكربتات الدوكر وبناء المشروع
 RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
+
 RUN ./Docker/scripts/generate_database.sh
+
 RUN npm run build
 
-# --- المرحلة الثانية: التشغيل النهائي (Final) ---
+# ... (نفس الجزء العلوي الخاص بـ builder يبقى كما هو) ...
+
 FROM node:24-alpine AS final
 
-# إضافة بايثون لتشغيل سيرفرك
+# إضافة python3 لتشغيل سيرفر الوهمي
 RUN apk update && \
-    apk add --no-cache tzdata ffmpeg bash openssl python3
+    apk add tzdata ffmpeg bash openssl python3
 
 ENV TZ=America/Sao_Paulo
 ENV DOCKER_ENV=true
-ENV NODE_ENV=production
 
 WORKDIR /evolution
 
-# نسخ المخرجات من مرحلة البناء فقط
+# نسخ الملفات من الـ builder
 COPY --from=builder /evolution/package.json ./package.json
+COPY --from=builder /evolution/package-lock.json ./package-lock.json
 COPY --from=builder /evolution/node_modules ./node_modules
 COPY --from=builder /evolution/dist ./dist
 COPY --from=builder /evolution/prisma ./prisma
 COPY --from=builder /evolution/manager ./manager
 COPY --from=builder /evolution/public ./public
 COPY --from=builder /evolution/.env ./.env
-COPY --from=builder /evolution/start.py ./start.py
+COPY --from=builder /evolution/Docker ./Docker
+COPY --from=builder /evolution/runWithProvider.js ./runWithProvider.js
+COPY --from=builder /evolution/tsup.config.ts ./tsup.config.ts
+
+# --- إضافة ملف start.py هنا ---
+COPY ./start.py ./start.py
 
 EXPOSE 8080
 
-# الحل الجذري: تنفيذ الهجرة لإنشاء الجداول ثم تشغيل بايثون
-# هذا يمنع خطأ الـ 500 و "Table public.Instance not found"
-ENTRYPOINT ["sh", "-c", "npx prisma migrate deploy && python3 start.py"]
+# التعديل الجذري هنا: تشغيل بايثون كأول عملية
+ENTRYPOINT ["python3", "start.py"]
