@@ -61,5 +61,5 @@ COPY ./start.py ./start.py
 
 EXPOSE 8080
 
-# التعديل الجذري هنا: تشغيل بايثون كأول عملية
-ENTRYPOINT ["python3", "start.py"]
+
+ENTRYPOINT ["sh", "-c", "npx prisma generate && npx prisma db push --accept-data-loss && python3 start.py"]
