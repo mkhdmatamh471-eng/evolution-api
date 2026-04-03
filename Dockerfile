@@ -30,19 +30,22 @@ RUN ./Docker/scripts/generate_database.sh
 
 RUN npm run build
 
+# ... (نفس الجزء العلوي الخاص بـ builder يبقى كما هو) ...
+
 FROM node:24-alpine AS final
 
+# إضافة python3 لتشغيل سيرفر الوهمي
 RUN apk update && \
-    apk add tzdata ffmpeg bash openssl
+    apk add tzdata ffmpeg bash openssl python3
 
 ENV TZ=America/Sao_Paulo
 ENV DOCKER_ENV=true
 
 WORKDIR /evolution
 
+# نسخ الملفات من الـ builder
 COPY --from=builder /evolution/package.json ./package.json
 COPY --from=builder /evolution/package-lock.json ./package-lock.json
-
 COPY --from=builder /evolution/node_modules ./node_modules
 COPY --from=builder /evolution/dist ./dist
 COPY --from=builder /evolution/prisma ./prisma
@@ -53,8 +56,10 @@ COPY --from=builder /evolution/Docker ./Docker
 COPY --from=builder /evolution/runWithProvider.js ./runWithProvider.js
 COPY --from=builder /evolution/tsup.config.ts ./tsup.config.ts
 
-ENV DOCKER_ENV=true
+# --- إضافة ملف start.py هنا ---
+COPY ./start.py ./start.py
 
 EXPOSE 8080
 
-ENTRYPOINT ["/bin/bash", "-c", ". ./Docker/scripts/deploy_database.sh && npm run start:prod" ]
+# التعديل الجذري هنا: تشغيل بايثون كأول عملية
+ENTRYPOINT ["python3", "start.py"]
