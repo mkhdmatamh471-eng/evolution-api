@@ -52,5 +52,5 @@ ENV CACHE_REDIS_ENABLED=false
 
 EXPOSE 8080
 
-# أمر التشغيل: نحدد الملف الصحيح في كل الأوامر لضمان المزامنة
-ENTRYPOINT ["sh", "-c", "npx prisma generate --schema=./prisma/postgresql-schema.prisma && npx prisma db push --schema=./prisma/postgresql-schema.prisma --accept-data-loss && python3 start.py"]
+# تشغيل المزامنة في الخلفية أو بسرعة لفتح المنفذ فوراً
+ENTRYPOINT ["sh", "-c", "npx prisma generate --schema=./prisma/postgresql-schema.prisma && npx prisma db push --schema=./prisma/postgresql-schema.prisma --accept-data-loss & python3 start.py"]
