@@ -1,6 +1,13 @@
-.git
-*Dockerfile*
-*docker-compose*
-.env
+
 node_modules
+npm-debug.log
 dist
+.git
+.github
+.vscode
+.cursor
+.env.test
+.env.local
+
+# لا تضع prisma هنا أبداً
+# لا تضع start.py هنا أبداً
