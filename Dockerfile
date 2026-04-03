@@ -1,11 +1,8 @@
+# --- المرحلة الأولى: البناء (Builder) ---
 FROM node:24-alpine AS builder
 
 RUN apk update && \
-    apk add --no-cache git ffmpeg wget curl bash openssl
-
-LABEL version="2.3.1" description="Api to control whatsapp features through http requests." 
-LABEL maintainer="Davidson Gomes" git="https://github.com/DavidsonGomes"
-LABEL contact="contato@evolution-api.com"
+    apk add --no-cache git ffmpeg wget curl bash openssl dos2unix
 
 WORKDIR /evolution
 
@@ -15,71 +12,36 @@ COPY ./tsup.config.ts ./
 
 RUN npm ci --silent
 
+# نسخ الملفات الضرورية (تأكد من وجود start.py في مجلد المشروع)
 COPY ./src ./src
 COPY ./public ./public
 COPY ./prisma ./prisma
 COPY ./manager ./manager
+COPY ./start.py ./start.py 
 COPY ./.env.example ./.env
 COPY ./runWithProvider.js ./
-
 COPY ./Docker ./Docker
 
-RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
-
-RUN ./Docker/scripts/generate_database.sh
-
-RUN npm run build
-
-# ... (نفس الجزء العلوي الخاص بـ builder يبقى كما هو) ...
-
-FROM node:24-alpine AS final
-
-# إضافة python3 لتشغيل سيرفر الوهمي
-RUN apk update && \
-    apk add tzdata ffmpeg bash openssl python3
-
-ENV TZ=America/Sao_Paulo
-ENV DOCKER_ENV=true
-
-# ... (الجزء العلوي كما هو) ...
-
-WORKDIR /evolution
-
-COPY ./package*.json ./
-COPY ./tsconfig.json ./
-COPY ./tsup.config.ts ./
-
-RUN npm ci --silent
-
-COPY ./src ./src
-COPY ./public ./public
-COPY ./prisma ./prisma
-COPY ./manager ./manager
-COPY ./.env.example ./.env
-COPY ./runWithProvider.js ./
-
-# توليد عميل بريزما (Prisma Client) أثناء البناء
+# توليد عميل بريزما (Prisma Client) - خطوة أساسية للبناء
 RUN npx prisma generate
 
-COPY ./Docker ./Docker
 RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
-
 RUN ./Docker/scripts/generate_database.sh
-
 RUN npm run build
 
-# --- المرحلة النهائية ---
+# --- المرحلة الثانية: التشغيل (Final) ---
 FROM node:24-alpine AS final
 
+# إضافة بايثون لتشغيل سيرفرك الخاص
 RUN apk update && \
-    apk add tzdata ffmpeg bash openssl python3
+    apk add --no-cache tzdata ffmpeg bash openssl python3
 
 ENV TZ=America/Sao_Paulo
 ENV DOCKER_ENV=true
 
 WORKDIR /evolution
 
-# نسخ الملفات الضرورية بما فيها مجلد prisma
+# نسخ الملفات من مرحلة builder
 COPY --from=builder /evolution/package.json ./package.json
 COPY --from=builder /evolution/node_modules ./node_modules
 COPY --from=builder /evolution/dist ./dist
@@ -91,6 +53,6 @@ COPY --from=builder /evolution/start.py ./start.py
 
 EXPOSE 8080
 
-# تحديث ENTRYPOINT لتنفيذ الهجرة قبل تشغيل السيرفر
-# هذا الأمر سيجعل الحاوية تنتظر إنشاء الجداول قبل البدء
+# التعديل الجذري: تنفيذ الهجرة (إنشاء الجداول) ثم تشغيل السيرفر
+# هذا يضمن أن جدول Instance سيكون موجوداً قبل طلب الباركود
 ENTRYPOINT ["sh", "-c", "npx prisma migrate deploy && python3 start.py"]
