@@ -1,14 +1,16 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_CONNECTION_URI")
+}
+
+// --- الجداول المضافة يدوياً ---
 
 model store_settings {
   store_id           String    @id
@@ -22,7 +24,6 @@ model store_settings {
   created_at         DateTime  @default(now()) @db.Timestamptz(6)
   store_name         String?
   access_token       String?
-  // هنا نقوم بربط updatedAt البرمجية بحقل updated_at في سوبابيز
   updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   whatsapp_instance  String?   @db.VarChar
   whatsapp_status    String?   @default("disconnected") @db.VarChar
@@ -55,7 +56,6 @@ model conversations {
   role        String?
   content     String?
   created_at  DateTime? @default(now()) @db.Timestamptz(6)
-  // بما أن هذا الجدول لا يحتوي على updated_at، ربطناه بـ created_at لإرضاء السيرفر
   updatedAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@map("conversations")
@@ -68,9 +68,7 @@ model reminders_log {
   @@map("reminders_log")
 }
 
-  provider = "postgresql"
-  url      = env("DATABASE_CONNECTION_URI")
-}
+// --- Enums الأصلية للمشروع ---
 
 enum InstanceConnectionStatus {
   open
@@ -118,6 +116,8 @@ enum DifyBotType {
   agent
   workflow
 }
+
+// --- جداول Evolution API الأصلية ---
 
 model Instance {
   id                      String                   @id @default(cuid())
