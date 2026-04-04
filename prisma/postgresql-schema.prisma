@@ -9,6 +9,65 @@ generator client {
 }
 
 datasource db {
+
+model store_settings {
+  store_id           String    @id
+  salla_access_token String?
+  refresh_token      String?
+  client_id          String?
+  client_secret      String?
+  system_prompt      String?   @default("أجب بطلاقة ولغة عربية بسيطة")
+  admin_phone        String?
+  is_active          Boolean   @default(true)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  store_name         String?
+  access_token       String?
+  // هنا نقوم بربط updatedAt البرمجية بحقل updated_at في سوبابيز
+  updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  whatsapp_instance  String?   @db.VarChar
+  whatsapp_status    String?   @default("disconnected") @db.VarChar
+  last_connected_at  DateTime? @db.Timestamp(6)
+
+  @@map("store_settings")
+}
+
+model store_sessions {
+  id           Int       @id @default(autoincrement())
+  store_id     String?
+  session_data String?
+  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("store_sessions")
+}
+
+model customers {
+  id        Int       @id @default(autoincrement())
+  phone     String    @unique
+  name      String?
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("customers")
+}
+
+model conversations {
+  id          Int       @id @default(autoincrement())
+  customer_id Int?
+  role        String?
+  content     String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  // بما أن هذا الجدول لا يحتوي على updated_at، ربطناه بـ created_at لإرضاء السيرفر
+  updatedAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("conversations")
+}
+
+model reminders_log {
+  id        Int       @id @default(autoincrement())
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("reminders_log")
+}
+
   provider = "postgresql"
   url      = env("DATABASE_CONNECTION_URI")
 }
