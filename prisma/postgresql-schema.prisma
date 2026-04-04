@@ -1,6 +1,9 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,66 +12,6 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_CONNECTION_URI")
 }
-
-// --- الجداول المضافة يدوياً ---
-
-model store_settings {
-  store_id           String    @id
-  salla_access_token String?
-  refresh_token      String?
-  client_id          String?
-  client_secret      String?
-  system_prompt      String?   @default("أجب بطلاقة ولغة عربية بسيطة")
-  admin_phone        String?
-  is_active          Boolean   @default(true)
-  created_at         DateTime  @default(now()) @db.Timestamptz(6)
-  store_name         String?
-  access_token       String?
-  updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  whatsapp_instance  String?   @db.VarChar
-  whatsapp_status    String?   @default("disconnected") @db.VarChar
-  last_connected_at  DateTime? @db.Timestamp(6)
-
-  @@map("store_settings")
-}
-
-model store_sessions {
-  id           Int       @id @default(autoincrement())
-  store_id     String?
-  session_data String?
-  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  @@map("store_sessions")
-}
-
-model customers {
-  id        Int       @id @default(autoincrement())
-  phone     String    @unique
-  name      String?
-  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  @@map("customers")
-}
-
-model conversations {
-  id          Int       @id @default(autoincrement())
-  customer_id Int?
-  role        String?
-  content     String?
-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  @@map("conversations")
-}
-
-model reminders_log {
-  id        Int       @id @default(autoincrement())
-  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  @@map("reminders_log")
-}
-
-// --- Enums الأصلية للمشروع ---
 
 enum InstanceConnectionStatus {
   open
@@ -116,8 +59,6 @@ enum DifyBotType {
   agent
   workflow
 }
-
-// --- جداول Evolution API الأصلية ---
 
 model Instance {
   id                      String                   @id @default(cuid())
@@ -819,4 +760,59 @@ model EvoaiSetting {
   evoaiIdFallback String?   @db.VarChar(100)
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String    @unique
+}
+
+model store_settings {
+  store_id           String    @id
+  system_prompt      String?   @default("أجب بطلاقة ولغة عربية بسيطة")
+  is_active          Boolean   @default(true)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  whatsapp_instance  String?   @db.VarChar
+  whatsapp_status    String?   @default("disconnected") @db.VarChar
+
+  @@map("store_settings")
+}
+
+model conversations {
+  id          Int       @id @default(autoincrement())
+  customer_id Int?
+  role        String?
+  content     String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("conversations")
+}
+
+model customers {
+  id           Int       @id @default(autoincrement())
+  salla_id     String?   @unique @db.VarChar
+  name         String?   @db.VarChar
+  mobile       String?   @unique @db.VarChar
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  last_contact DateTime? @db.Timestamptz(6)
+
+  @@map("customers")
+}
+
+model store_sessions {
+  id            Int       @id @default(autoincrement())
+  store_id      String?   @unique @db.VarChar
+  access_token  String?
+  refresh_token String?
+  expires_at    DateTime? @db.Timestamptz(6)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@map("store_sessions")
+}
+
+model reminders_log {
+  id             Int       @id @default(autoincrement())
+  customer_id    Int?
+  reminder_type  String?   @db.VarChar
+  sent_at        DateTime? @default(now()) @db.Timestamptz(6)
+  status         String?   @default("sent") @db.VarChar
+
+  @@map("reminders_log")
 }
